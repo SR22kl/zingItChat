@@ -12,9 +12,11 @@ const authMiddleware = (req, res, next) => {
   //   );
   // }
 
-  const authHeader = req.headers("authorization");
+  // `req.headers` is an object; use `req.get()` or `req.headers.authorization`
+  const authHeader =
+    (req.get && req.get("authorization")) || req.headers?.authorization;
 
-  if (!authHeader || !authHeader.startsWith("Bearer")) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return response(
       res,
       401,
