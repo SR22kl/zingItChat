@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+@plugin "daisyui";
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #787777 #1e1e1e;
+  scroll-behavior: smooth;
+}

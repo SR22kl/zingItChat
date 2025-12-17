@@ -1,0 +1,16 @@
+# Dependency directories
+client/node_modules
+server/node_modules
+
+
+client/.env
+server/.env
+
+# Build directories
+client/build/
+client/dist/
+server/dist/
+
+client/.next/
+client/out/
+
