@@ -30,6 +30,11 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Silence favicon requests (avoid 500s from missing favicon during debugging)
+app.get(["/favicon.ico", "/favicon.png", "/favicon.svg"], (req, res) =>
+  res.status(204).end()
+);
+
 // create server
 const server = http.createServer(app);
 const io = initailizeSocket(server);
