@@ -1,7 +1,6 @@
-import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
-import dotenv from "dotenv";
 import fs from "fs";
+import multer from "multer";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
@@ -41,4 +40,4 @@ const uploadFileToCloudinary = async (file) => {
 
 const multerMiddleware = multer({ dest: "uploads/" }).single("media");
 
-export { uploadFileToCloudinary, multerMiddleware };
+export { multerMiddleware, uploadFileToCloudinary };
