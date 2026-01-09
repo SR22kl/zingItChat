@@ -12,9 +12,6 @@ import statusRouter from "./routes/statusRoutes.js";
 
 dotenv.config();
 
-// Connect to database
-dbConnect();
-
 const app = express();
 const PORT = process.env.PORT || 4000;
 
@@ -35,25 +32,40 @@ app.get(["/favicon.ico", "/favicon.png", "/favicon.svg"], (req, res) =>
   res.status(204).end()
 );
 
-// create server
-const server = http.createServer(app);
-const io = initailizeSocket(server);
+// Wrap startup so we await DB connection before creating server/socket
+const startServer = async () => {
+  try {
+    await dbConnect();
 
-//apply socket middleware to express app
-app.use((req, res, next) => {
-  req.io = io;
-  req.socketUserMap = io.socketUserMap;
-  next();
-});
+    // create server
+    const server = http.createServer(app);
+    const io = initailizeSocket(server);
 
-// Routes
-app.use("/api/auth", userRouter);
-app.use("/api/chat", chatRouter);
-app.use("/api/status", statusRouter);
+    //apply socket middleware to express app so routes can access io
+    app.use((req, res, next) => {
+      req.io = io;
+      req.socketUserMap = io.socketUserMap;
+      next();
+    });
 
-// Home route
-app.use("/", (req, res) => res.send("Server is working!"));
+    // Routes
+    app.use("/api/auth", userRouter);
+    app.use("/api/chat", chatRouter);
+    app.use("/api/status", statusRouter);
 
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+    // Home route
+    app.use("/", (req, res) => res.send("Server is working!"));
+
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error(
+      "Server startup aborted due to DB connection failure:",
+      error
+    );
+    process.exit(1);
+  }
+};
+
+startServer();
