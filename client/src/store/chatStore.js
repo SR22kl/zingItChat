@@ -334,18 +334,44 @@ export const useChatStore = create((set, get) => ({
 
     const { currentConversation, currentUser } = get();
 
-    // Fix: Use state.messages for existence check
-    const messageExist = get().messages.some((msg) => msg._id === message._id);
-    if (messageExist) return;
+    // Fix: deduplicate messages using server _id OR clientTempId
+    const stateMessages = get().messages || [];
 
-    if (message.conversation === currentConversation) {
-      set((state) => ({
-        messages: [...state.messages, message],
-      }));
+    // If server message has clientTempId and a matching optimistic message exists, replace it
+    if (message.clientTempId) {
+      const tempIndex = stateMessages.findIndex(
+        (m) => m._id === message.clientTempId
+      );
+      if (tempIndex > -1) {
+        set((state) => {
+          const newMessages = [...state.messages];
+          newMessages[tempIndex] = message;
+          return { messages: newMessages };
+        });
 
-      //automatically mark as read
-      if (message?.receiver?._id === currentUser?._id) {
-        get().markMessagesAsRead();
+        //automatically mark as read if appropriate
+        if (message?.receiver?._id === currentUser?._id) {
+          get().markMessagesAsRead();
+        }
+        // update conversation preview & exit early
+      } else {
+        // no temp match found; fall through to normal add below
+      }
+      // proceed to update conversations/unread whether replaced or not
+    } else {
+      // Normal dedupe by server _id
+      const messageExist = stateMessages.some((msg) => msg._id === message._id);
+      if (messageExist) return;
+
+      if (message.conversation === currentConversation) {
+        set((state) => ({
+          messages: [...state.messages, message],
+        }));
+
+        //automatically mark as read
+        if (message?.receiver?._id === currentUser?._id) {
+          get().markMessagesAsRead();
+        }
       }
     }
 

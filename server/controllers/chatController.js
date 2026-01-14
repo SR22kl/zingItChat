@@ -5,7 +5,8 @@ import response from "../utils/resHandler.js";
 
 export const sendMessage = async (req, res) => {
   try {
-    const { senderId, receiverId, content, messageStatus } = req.body;
+    const { senderId, receiverId, content, messageStatus, clientTempId } =
+      req.body;
     const file = req.file;
 
     const participants = [senderId, receiverId].sort();
@@ -63,9 +64,13 @@ export const sendMessage = async (req, res) => {
     conversation.unreadCount = +1;
     await conversation.save();
 
-    const populatedMessage = await Message.findOne(message?._id)
+    const populatedMessageDoc = await Message.findOne(message?._id)
       .populate("sender", "userName profilePicture")
       .populate("receiver", "userName profilePicture");
+    const populatedMessage = {
+      ...populatedMessageDoc.toObject(),
+      clientTempId: clientTempId || null,
+    };
 
     // Emit socket event for real-time message delivery
     if (req.io && req.socketUserMap) {
