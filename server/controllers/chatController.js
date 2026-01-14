@@ -75,68 +75,36 @@ export const sendMessage = async (req, res) => {
 
     // Emit socket event for real-time message delivery
     if (req.io && req.socketUserMap) {
-        const populatedMessage = {
-          ...populatedMessageDoc.toObject(),
-          clientTempId: clientTempId || null,
-        };
+      try {
+        const io = req.io;
+        const socketMap = req.socketUserMap; // Map<userId, socketId>
+        const roomId = conversation._id.toString();
 
-        // DEBUG: log important identifiers to trace duplicate message flow
-        console.log("sendMessage DEBUG:", {
-          clientTempId,
-          try {
-            // Prefer using the sender's socket to broadcast to the room excluding sender
-            // This avoids relying on `except` which may not be available in all setups
-            let roomMembers = req.io.sockets.adapter.rooms.get(conversation._id.toString());
+        // Emit to the conversation room (users who have joined the conversation will receive this)
+        io.in(roomId).emit("new_message", populatedMessage);
 
-            if (senderSocketId) {
-              const senderSocket = req.io.sockets.sockets.get(senderSocketId);
-              if (senderSocket && typeof senderSocket.to === "function") {
-                senderSocket.to(conversation._id.toString()).emit("new_message", populatedMessage);
-                console.log("sendMessage DEBUG: broadcast from sender socket to room (excluded sender)", { senderSocketId });
-              } else {
-                // Fallback to room emit
-                req.io.in(conversation._id.toString()).emit("new_message", populatedMessage);
-                console.log("sendMessage DEBUG: fallback room emit (sender socket not found)");
-              }
-            } else {
-              req.io.in(conversation._id.toString()).emit("new_message", populatedMessage);
-              console.log("sendMessage DEBUG: emitted to room (no senderSocketId)");
-            }
-
-            // Re-evaluate room members after emit attempt
-            roomMembers = req.io.sockets.adapter.rooms.get(conversation._id.toString());
-
-            // If receiver is connected and NOT already in the room, emit directly to them
-            if (receiverSocketId) {
-              const receiverInRoom = roomMembers && roomMembers.has(receiverSocketId);
-              if (!receiverInRoom) {
-                req.io.to(receiverSocketId).emit("new_message", populatedMessage);
-                console.log("sendMessage DEBUG: emitted directly to receiverSocketId (not in room)", { receiverSocketId });
-              } else {
-                console.log("sendMessage DEBUG: receiver already in room, skipped direct emit", { receiverSocketId });
-              }
-              message.messageStatus = "delivered";
-              await message.save();
-            }
-          } catch (e) {
-            // If anything goes wrong, fallback to simple room emit
-            try {
-              req.io.to(conversation._id.toString()).emit("new_message", populatedMessage);
-              console.log("sendMessage DEBUG: final fallback room emit", { error: e && e.message });
-            } catch (err) {
-              console.error("sendMessage DEBUG: failed to emit message", err);
-            }
+        // Also emit directly to receiver's socket if they're connected but not in the conversation room
+        const receiverSocketId = socketMap.get(String(receiverId));
+        if (receiverSocketId) {
+          const room = io.sockets.adapter.rooms.get(roomId);
+          const receiverInRoom = room && room.has(receiverSocketId);
+          if (!receiverInRoom) {
+            io.to(receiverSocketId).emit("new_message", populatedMessage);
           }
+          // mark delivered when receiver is connected
+          message.messageStatus = "delivered";
+          await message.save();
+        }
+      } catch (err) {
+        console.error("sendMessage emit error:", err);
+        try {
+          req.io
+            .in(conversation._id.toString())
+            .emit("new_message", populatedMessage);
+        } catch (e) {
+          console.error("sendMessage final fallback emit failed:", e);
+        }
       }
-
-      // If receiver is directly connected (and not part of the room), ensure they get notified
-            console.log("sendMessage DEBUG: fallback emitted to room (except not supported)", { error: e && e.message });
-      if (receiverSocketId) {
-        req.io.to(receiverSocketId).emit("new_message", populatedMessage);
-        message.messageStatus = "delivered";
-        await message.save();
-      }
-            console.log("sendMessage DEBUG: emitted directly to receiverSocketId", { receiverSocketId });
     }
 
     return response(res, 201, "Message sent successfully", populatedMessage);
