@@ -16,6 +16,29 @@ export const useChatStore = create((set, get) => ({
     const socket = getSocket();
     if (!socket) return;
 
+    // Ensure server knows this user's socket id for direct emits
+    const currentUser = get().currentUser;
+    try {
+      if (
+        currentUser &&
+        currentUser._id &&
+        socket &&
+        typeof socket.emit === "function"
+      ) {
+        socket.emit("user_connected", currentUser._id);
+      }
+      // Re-emit on reconnect to ensure mapping after network blips
+      socket.off("connect");
+      socket.on("connect", () => {
+        const u = get().currentUser;
+        if (u && u._id) {
+          socket.emit("user_connected", u._id);
+        }
+      });
+    } catch (e) {
+      console.error("initsoketListeners: failed to emit user_connected", e);
+    }
+
     socket.off("send_message");
     socket.off("receive_message");
     socket.off("new_message");
