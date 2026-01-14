@@ -18,8 +18,9 @@ export const initailizeSocket = () => {
   socket = io(BACKEND_URL, {
     auth: { token },
     // withCredentials: true,
-    transports: ["websocket", "polling"],
-    reconnectionAttempts: 5,
+    // prefer polling first (serverless platforms often block websocket upgrades)
+    transports: ["polling", "websocket"],
+    reconnectionAttempts: 10,
     reconnectionDelay: 1000,
   });
 
@@ -37,7 +38,10 @@ export const initailizeSocket = () => {
   });
 
   socket.on("connect_error", (error) => {
-    console.error("socket connection error:", error);
+    console.error(
+      "socket connection error:",
+      error && error.message ? error.message : error
+    );
   });
 
   //disconnected events
