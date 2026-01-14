@@ -7,82 +7,51 @@ export const useChatStore = create((set, get) => ({
   currentConversation: null,
   messages: [],
   loading: false,
-    if (!message) return;
+  error: null,
+  currentUser: null,
+  onlineUsers: new Map(),
+  typingUsers: new Map(),
 
-    const { currentConversation, currentUser } = get();
-    const stateMessages = get().messages || [];
+  initsoketListeners: () => {
+    const socket = getSocket();
+    if (!socket) return;
 
-    // DEBUG: incoming message
-    try {
-      console.debug("recieveMessage DEBUG: incoming", { messageId: message._id, clientTempId: message.clientTempId });
-    } catch (e) {}
+    socket.off("send_message");
+    socket.off("receive_message");
+    socket.off("new_message");
+    socket.off("user_typing");
+    socket.off("user_status");
+    socket.off("message_error");
+    socket.off("message_deleted");
+    socket.off("refetch_messages");
+    socket.off("message_status_update");
 
-    // If server message has clientTempId and a matching optimistic message exists, replace it
-    let replacedOptimistic = false;
-    if (message.clientTempId) {
-      const tempIndex = stateMessages.findIndex((m) => m._id === message.clientTempId);
-      if (tempIndex > -1) {
-        set((state) => {
-          const newMessages = [...state.messages];
-          newMessages[tempIndex] = message;
-          return { messages: newMessages };
-        });
-
-        replacedOptimistic = true;
-
-        //automatically mark as read
-        if (message?.receiver?._id === currentUser?._id) {
-          get().markMessagesAsRead();
-        }
+    socket.on("receive_message", (message) => {
+      try {
+        console.debug("socket: receive_message", message);
+        get().recieveMessage(message);
+      } catch (e) {
+        console.error("Error handling receive_message", e);
       }
-    }
-
-    // If message already exists by server _id, ignore duplicate
-    if (stateMessages.some((m) => m._id === message._id)) {
-      return;
-    }
-
-    // If not replaced optimistic and conversation matches, append message
-    if (!replacedOptimistic && message.conversation === currentConversation) {
-      set((state) => ({
-        messages: [...state.messages, message],
-      }));
-
-      //automatically mark as read
-      if (message?.receiver?._id === currentUser?._id) {
-        get().markMessagesAsRead();
-      }
-    }
-
-    //update conversation preview & unread count
-    set((state) => {
-      const updateConversations = state.conversations.data.map((conv) => {
-        if (conv._id === message.conversation) {
-          return {
-            ...conv,
-            latestMessage: message,
-            unreadCount:
-              message?.receiver?._id === currentUser?._id
-                ? (conv.unreadCount || 0) + 1
-                : conv.unreadCount || 0,
-          };
-        }
-        return conv;
-      });
-
-      return {
-        conversations: {
-          ...state.conversations,
-          data: updateConversations,
-        },
-      };
     });
+
+    socket.on("new_message", (message) => {
+      try {
+        console.debug("socket: new_message", message);
+        get().recieveMessage(message);
+      } catch (e) {
+        console.error("Error handling new_message", e);
+      }
+    });
+
+    socket.on("send_message", (message) => {
+      set((state) => ({
+        messages: state.messages.map((msg) =>
           msg._id === message._id ? message : msg
         ),
       }));
     });
 
-    //update message status
     socket.on("message_status_update", ({ messageId, messageStatus }) => {
       set((state) => ({
         messages: state.messages.map((msg) =>
@@ -91,53 +60,38 @@ export const useChatStore = create((set, get) => ({
       }));
     });
 
-    //handle remove message from local state
     socket.on("message_deleted", ({ deletedMessageId }) => {
       set((state) => ({
         messages: state.messages.filter((msg) => msg._id !== deletedMessageId),
       }));
     });
 
-    //handle any message sending error
     socket.on("message_error", (error) => {
-      console.error("message_error", error); // Changed log to error
+      console.error("message_error", error);
     });
 
-    // Handle real-time updates for reactions, deleted messages, etc.
     socket.on("refetch_messages", ({ conversationId }) => {
-      const { currentConversation, fetchMessages } = get();
-
-      // Check: Conversation IDs must match explicitly as strings
+      const { currentConversation } = get();
       if (String(conversationId) === String(currentConversation)) {
-        fetchMessages(currentConversation);
+        get().fetchMessages(currentConversation);
       }
     });
 
-    //listner for typing users
     socket.on("user_typing", ({ userId, conversationId, isTyping }) => {
       set((state) => {
         const newTypingUsers = new Map(state.typingUsers);
         if (!newTypingUsers.has(conversationId)) {
-          // Note: You should initialize this as a Set() for .add/.delete to work
-          // Assuming you'll fix the implementation inside the component that consumes typingSet
           newTypingUsers.set(conversationId, new Set());
         }
         const typingSet = newTypingUsers.get(conversationId);
-
-        // Ensure typingSet is a Set before using add/delete
         if (typingSet instanceof Set) {
-          if (isTyping) {
-            typingSet.add(userId);
-          } else {
-            typingSet.delete(userId);
-          }
+          if (isTyping) typingSet.add(userId);
+          else typingSet.delete(userId);
         }
-
         return { typingUsers: new Map(newTypingUsers) };
       });
     });
 
-    //track user online/offline status
     socket.on("user_status", ({ userId, isOnline, lastSeen }) => {
       set((state) => {
         const newOnlineUsers = new Map(state.onlineUsers);
@@ -146,22 +100,19 @@ export const useChatStore = create((set, get) => ({
       });
     });
 
-    //emit state check for all users in conversation list
     const { conversations } = get();
     if (conversations?.data?.length > 0) {
       conversations.data.forEach((conv) => {
         const otherUser = conv.participants.find(
           (p) => p._id !== get().currentUser?._id
         );
-
         if (otherUser?._id) {
           socket.emit("get_user_status", otherUser._id, (status) => {
             set((state) => {
               const newOnlineUsers = new Map(state.onlineUsers);
               newOnlineUsers.set(otherUser._id, {
-                // Changed state.userId to otherUser._id
-                isOnline: status.isOnline,
-                lastSeen: status.lastSeen,
+                isOnline: status?.isOnline,
+                lastSeen: status?.lastSeen,
               });
               return { onlineUsers: newOnlineUsers };
             });
@@ -178,7 +129,6 @@ export const useChatStore = create((set, get) => ({
     try {
       const { data } = await axiosInstance.get(`/chat/conversations`);
       set({ conversations: data, loading: false });
-
       get().initsoketListeners();
       return data;
     } catch (error) {
@@ -190,14 +140,12 @@ export const useChatStore = create((set, get) => ({
     return null;
   },
 
-  //fetch message for a conversation
   fetchMessages: async (conversationId) => {
     if (!conversationId) return null;
 
     set({ loading: true, error: null });
 
     try {
-      // FIX KEPT: Cache-busting to ensure fresh data for real-time updates
       const cacheBuster = Date.now();
       const url = `/chat/conversations/${conversationId}?t=${cacheBuster}`;
 
@@ -205,12 +153,10 @@ export const useChatStore = create((set, get) => ({
 
       const messageArray = data.data || data || [];
 
-      // Preserve optimistic (temp) messages so they aren't lost during refetches
-      const currentOptimistic = get().messages.filter(
+      const currentOptimistic = (get().messages || []).filter(
         (m) => m && m._id && String(m._id).startsWith("temp-")
       );
 
-      // Merge server messages with optimistic ones (avoid duplicates)
       const merged = [
         ...messageArray,
         ...currentOptimistic.filter(
@@ -218,22 +164,17 @@ export const useChatStore = create((set, get) => ({
         ),
       ];
 
-      // Set state
       set({
         messages: merged,
         currentConversation: conversationId,
         loading: false,
       });
 
-      // FIX KEPT: Emit socket event to join the room on the server (Critical for receiving updates)
       const socket = getSocket();
-      if (socket && conversationId) {
+      if (socket && conversationId)
         socket.emit("join_conversation", conversationId);
-      }
 
-      // Mark users messages as read
-      const { markMessagesAsRead } = get();
-      markMessagesAsRead();
+      get().markMessagesAsRead();
 
       return messageArray;
     } catch (error) {
@@ -246,15 +187,12 @@ export const useChatStore = create((set, get) => ({
     return null;
   },
 
-  //send message in real time
   sendMessage: async (formData, { onProgress, signal } = {}) => {
     const senderId = formData.get("senderId");
     const receiverId = formData.get("receiverId");
     const media = formData.get("media");
     const content = formData.get("content");
     const messageStatus = formData.get("messageStatus");
-
-    const soket = getSocket();
 
     const { conversations } = get();
     let conversationId = null;
@@ -270,7 +208,7 @@ export const useChatStore = create((set, get) => ({
         set({ currentConversation: conversationId });
       }
     }
-    //temp message before sending actual response
+
     const tempId = `temp-${Date.now()}`;
     const optimisticMessage = {
       _id: tempId,
@@ -281,9 +219,9 @@ export const useChatStore = create((set, get) => ({
         media && typeof media !== "string" ? URL.createObjectURL(media) : null,
       content: content,
       contentType: media
-        ? media.type.startsWith("image")
+        ? media.type?.startsWith("image")
           ? "image"
-          : media.type.startsWith("video")
+          : media.type?.startsWith("video")
           ? "video"
           : "document"
         : "text",
@@ -293,21 +231,8 @@ export const useChatStore = create((set, get) => ({
       createdAt: new Date().toString(),
       messageStatus,
     };
-    set((state) => ({
-      messages: [...state.messages, optimisticMessage],
-    }));
 
-    // DEBUG: log optimistic message added
-    try {
-      console.debug("recieveMessage DEBUG: optimistic added", {
-        tempId,
-        optimisticMessage,
-      });
-    } catch (e) {
-      /* noop */
-    }
-
-    // Ensure server knows the client's temp id so it can include it in emitted payloads
+    set((state) => ({ messages: [...state.messages, optimisticMessage] }));
     try {
       if (formData && typeof formData.append === "function") {
         formData.append("clientTempId", tempId);
@@ -330,9 +255,8 @@ export const useChatStore = create((set, get) => ({
             const total = progressEvent.total || progressEvent.loaded;
             const percentCompleted = total
               ? Math.round((progressEvent.loaded * 100) / total)
-              : Math.round((progressEvent.loaded / 1000) * 100) / 100; // fallback
+              : Math.round((progressEvent.loaded / 1000) * 100) / 100;
 
-            // update optimistic message progress
             set((state) => ({
               messages: state.messages.map((msg) =>
                 msg._id === tempId
@@ -341,7 +265,6 @@ export const useChatStore = create((set, get) => ({
               ),
             }));
 
-            // call external progress handler if provided
             if (typeof onProgress === "function") {
               try {
                 onProgress(percentCompleted);
@@ -350,13 +273,11 @@ export const useChatStore = create((set, get) => ({
               }
             }
           },
-          // support AbortController signal for canceling uploads
           signal,
         }
       );
       const messageData = data.data || data;
 
-      //replace optimstic message with actual message
       set((state) => ({
         messages: state.messages.map((msg) =>
           msg._id === tempId ? messageData : msg
@@ -366,28 +287,27 @@ export const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error("failed to send message", error);
       set((state) => ({
-        messages: state.messages.filter(
-          (msg) =>
-            // Fix: Correct logic to remove temp message on failure
-            msg._id !== tempId
-        ),
+        messages: state.messages.filter((msg) => msg._id !== tempId),
         error: error?.response?.data?.message || error?.message,
       }));
-      // Original code had a bug here. Fixing the filter logic on failure.
       throw error;
     }
   },
 
-  //recieve message
   recieveMessage: (message) => {
     if (!message) return;
 
     const { currentConversation, currentUser } = get();
-
-    // Fix: deduplicate messages using server _id OR clientTempId
     const stateMessages = get().messages || [];
 
-    // If server message has clientTempId and a matching optimistic message exists, replace it
+    try {
+      console.debug("recieveMessage DEBUG: incoming", {
+        messageId: message._id,
+        clientTempId: message.clientTempId,
+      });
+    } catch (e) {}
+
+    let replacedOptimistic = false;
     if (message.clientTempId) {
       const tempIndex = stateMessages.findIndex(
         (m) => m._id === message.clientTempId
@@ -399,35 +319,28 @@ export const useChatStore = create((set, get) => ({
           return { messages: newMessages };
         });
 
-        //automatically mark as read if appropriate
-        if (message?.receiver?._id === currentUser?._id) {
-          get().markMessagesAsRead();
-        }
-        // update conversation preview & exit early
-      } else {
-        // no temp match found; fall through to normal add below
-      }
-      // proceed to update conversations/unread whether replaced or not
-    } else {
-      // Normal dedupe by server _id
-      const messageExist = stateMessages.some((msg) => msg._id === message._id);
-      if (messageExist) return;
+        replacedOptimistic = true;
 
-      if (message.conversation === currentConversation) {
-        set((state) => ({
-          messages: [...state.messages, message],
-        }));
-
-        //automatically mark as read
         if (message?.receiver?._id === currentUser?._id) {
           get().markMessagesAsRead();
         }
       }
     }
 
-    //upadate conversation preview & unread count
+    if (stateMessages.some((m) => m._id === message._id)) return;
+
+    if (
+      !replacedOptimistic &&
+      String(message.conversation) === String(currentConversation)
+    ) {
+      set((state) => ({ messages: [...state.messages, message] }));
+      if (message?.receiver?._id === currentUser?._id)
+        get().markMessagesAsRead();
+    }
+
     set((state) => {
-      const updateConversations = state.conversations.data.map((conv) => {
+      const convs = state.conversations?.data || [];
+      const updateConversations = convs.map((conv) => {
         if (conv._id === message.conversation) {
           return {
             ...conv,
@@ -440,20 +353,14 @@ export const useChatStore = create((set, get) => ({
         }
         return conv;
       });
-
       return {
-        conversations: {
-          ...state.conversations,
-          data: updateConversations,
-        },
+        conversations: { ...state.conversations, data: updateConversations },
       };
     });
   },
 
-  //mark as read
   markMessagesAsRead: async () => {
     const { messages, currentUser } = get();
-
     if (!messages?.length || !currentUser) return;
     const unreadIds = messages
       .filter(
@@ -462,9 +369,7 @@ export const useChatStore = create((set, get) => ({
       )
       .map((msg) => msg._id)
       .filter(Boolean);
-
     if (unreadIds.length === 0) return;
-
     try {
       const { data } = await axiosInstance.put("/chat/message/read", {
         messageIds: unreadIds,
@@ -475,13 +380,12 @@ export const useChatStore = create((set, get) => ({
           unreadIds.includes(msg._id) ? { ...msg, messageStatus: "read" } : msg
         ),
       }));
-      const soket = getSocket();
-      if (soket) {
-        soket.emit("message_read", {
+      const socket = getSocket();
+      if (socket)
+        socket.emit("message_read", {
           messageIds: unreadIds,
           senderId: messages[0].sender?._id,
         });
-      }
     } catch (error) {
       console.error("Error in marking messages as read:", error);
     }
@@ -490,7 +394,6 @@ export const useChatStore = create((set, get) => ({
   deleteMessage: async (messageId) => {
     try {
       await axiosInstance.delete(`/chat/message/${messageId}`);
-
       set((state) => ({
         messages: state.messages?.filter((msg) => msg?._id !== messageId),
       }));
@@ -501,7 +404,6 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  // Add or change reactions
   addReaction: async (messageId, emoji) => {
     const socket = getSocket();
     if (!socket) {
@@ -513,33 +415,21 @@ export const useChatStore = create((set, get) => ({
     const currentConversationId = get().currentConversation;
 
     try {
-      // Optimistically update local message reactions so UI responds instantly
       set((state) => ({
         messages: state.messages.map((msg) => {
           if (msg._id !== messageId) return msg;
-
-          // clone reactions array
           const reactions = Array.isArray(msg.reactions)
             ? [...msg.reactions]
             : [];
-
-          // check for existing reaction by current user
           const existingIndex = reactions.findIndex(
             (r) => r && r.user && String(r.user._id) === String(currentUser._id)
           );
-
           if (existingIndex > -1) {
-            // toggle off if same emoji, otherwise replace
-            if (reactions[existingIndex].emoji === emoji) {
+            if (reactions[existingIndex].emoji === emoji)
               reactions.splice(existingIndex, 1);
-            } else {
-              reactions[existingIndex] = {
-                ...reactions[existingIndex],
-                emoji,
-              };
-            }
+            else
+              reactions[existingIndex] = { ...reactions[existingIndex], emoji };
           } else {
-            // push a temporary reaction object
             reactions.push({
               _id: `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
               user: {
@@ -550,12 +440,9 @@ export const useChatStore = create((set, get) => ({
               emoji,
             });
           }
-
           return { ...msg, reactions };
         }),
       }));
-
-      // Emit to server to persist the reaction; server will emit refetch_messages to sync
       socket.emit("add_reaction", {
         messageId,
         emoji,
@@ -594,10 +481,8 @@ export const useChatStore = create((set, get) => ({
       !currentConversation ||
       !typingUsers.has(currentConversation) ||
       !userId
-    ) {
+    )
       return false;
-    }
-    // Assuming typingUsers.get(currentConversation) is a Set
     return typingUsers.get(currentConversation).has(userId);
   },
 
@@ -624,3 +509,5 @@ export const useChatStore = create((set, get) => ({
     });
   },
 }));
+
+export default useChatStore;
