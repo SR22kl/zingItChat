@@ -328,7 +328,7 @@ export const useChatStore = create((set, get) => ({
     if (!message) return;
 
     const { currentConversation, currentUser } = get();
-    const stateMessages = get().messages || [];
+    let stateMessages = get().messages || [];
 
     try {
       console.debug("recieveMessage DEBUG: incoming", {

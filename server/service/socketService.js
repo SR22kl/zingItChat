@@ -25,7 +25,11 @@ export const initailizeSocket = (server) => {
 
   //when a new socket connection is established
   io.on("connection", (socket) => {
-    console.log(`User connected: ${socket.id}`);
+    const now = () => new Date().toISOString();
+    console.log(now(), `Socket connected: ${socket.id}`);
+    socket.on("error", (err) => {
+      console.error(now(), `Socket error on ${socket.id}:`, err);
+    });
     let userId = null;
 
     //Handle user connections & mark them online in DB
@@ -37,6 +41,7 @@ export const initailizeSocket = (server) => {
         socket.join(userId); //join a room with userId
 
         console.log(
+          now(),
           `Socket user_connected: userId=${userId}, socketId=${socket.id}`
         );
 
@@ -47,11 +52,9 @@ export const initailizeSocket = (server) => {
         });
 
         //notify all users about this user's online status
-        io.emit("user_status", {
-          userId,
-          isOnline: true,
-          lastSeen: new Date(),
-        });
+        const statusPayload = { userId, isOnline: true, lastSeen: new Date() };
+        console.log(now(), `Emitting user_status global for userId=${userId}`);
+        io.emit("user_status", statusPayload);
       } catch (error) {
         console.error("Error in handling user connection:", error);
       }
@@ -84,9 +87,23 @@ export const initailizeSocket = (server) => {
     // Reciever gets message when he is online
     socket.on("send_message", async (message) => {
       try {
-        const receiverSocketId = onlineUsers.get(message.receiver?._id);
+        const targetUserId = message.receiver?._id;
+        const receiverSocketId = onlineUsers.get(targetUserId);
+        console.log(
+          now(),
+          `send_message received from socket=${socket.id} for receiver=${targetUserId} -> socketId=${receiverSocketId}`
+        );
         if (receiverSocketId) {
           io.to(receiverSocketId).emit("receive_message", message);
+          console.log(
+            now(),
+            `Emitted receive_message to socketId=${receiverSocketId} for messageId=${message._id}`
+          );
+        } else {
+          console.log(
+            now(),
+            `No online socket for receiver=${targetUserId}, skipping direct emit`
+          );
         }
       } catch (error) {
         console.error("Error in sending message:", error);
@@ -204,6 +221,7 @@ export const initailizeSocket = (server) => {
 
     socket.on("join_conversation", (conversationId) => {
       console.log(
+        now(),
         `SERVER: Socket ${socket.id} joining room: ${conversationId}`
       );
       socket.join(conversationId);
@@ -234,13 +252,14 @@ export const initailizeSocket = (server) => {
           isOnline: false,
           lastSeen: new Date(),
         });
-        io.emit("user_status", {
-          userId,
-          isOnline: false,
-          lastSeen: new Date(),
-        });
+        const statusPayload = { userId, isOnline: false, lastSeen: new Date() };
+        console.log(
+          now(),
+          `User disconnect cleanup for userId=${userId}, socket=${socket.id}`
+        );
+        io.emit("user_status", statusPayload);
         socket.leave(userId);
-        console.log(`User: ${socket.id} disconnected`);
+        console.log(now(), `Socket disconnected: ${socket.id}`);
       } catch (error) {
         console.error("Error in handling user disconnection:", error);
       }
