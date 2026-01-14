@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import useLayoutStore from "../../store/layoutStore";
 import useThemeStore from "../../store/themeStore";
 import useUserStore from "../../store/useUserStore";
 import { FaPlus, FaSearch } from "react-icons/fa";
 import { motion } from "framer-motion";
 import formatTimestamp from "../../utils/formatTime";
+import { useChatStore } from "../../store/chatStore";
 const ChatList = ({ contacts }) => {
   const selectedContact = useLayoutStore((state) => state.selectedContact);
   const setSelectedContact = useLayoutStore(
@@ -14,12 +15,23 @@ const ChatList = ({ contacts }) => {
   const { theme } = useThemeStore();
   const [searchTerm, setSearchTerm] = useState("");
   const { user } = useUserStore();
+  const fetchCoversations = useChatStore((s) => s.fetchCoversations);
   const fiterContacts = contacts.filter((contact) =>
     contact?.userName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const backUserPic =
     "https://img.freepik.com/free-vector/user-blue-gradient_78370-4692.jpg?semt=ais_hybrid&w=740&q=80";
+
+  useEffect(() => {
+    try {
+      fetchCoversations();
+    } catch (e) {
+      console.error("ChatList: failed to fetch conversations", e);
+    }
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -61,6 +73,17 @@ const ChatList = ({ contacts }) => {
           </div>
         </div>
         <div className="overflow-y-auto h-[cal(120vh-120px)]">
+          {/* Ensure conversations and socket listeners are initialized so real-time updates work */}
+          {/* fetchCoversations is idempotent and also initializes socket listeners in the store */}
+          {useEffect(() => {
+            try {
+              fetchCoversations();
+            } catch (e) {
+              console.error("ChatList: failed to fetch conversations", e);
+            }
+            // run once on mount
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+          }, [])}
           {fiterContacts.map((contact) => (
             <motion.div
               key={contact?._id}
