@@ -36,6 +36,10 @@ export const initailizeSocket = (server) => {
         onlineUsers.set(userId, socket.id);
         socket.join(userId); //join a room with userId
 
+        console.log(
+          `Socket user_connected: userId=${userId}, socketId=${socket.id}`
+        );
+
         //update user isOnline status in DB
         await User.findByIdAndUpdate(userId, {
           isOnline: true,
