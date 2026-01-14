@@ -74,10 +74,19 @@ export const sendMessage = async (req, res) => {
 
     // Emit socket event for real-time message delivery
     if (req.io && req.socketUserMap) {
-      const receiverSocketId = req.socketUserMap.get(receiverId);
-      const senderSocketId = req.socketUserMap.get(senderId);
+        const populatedMessage = {
+          ...populatedMessageDoc.toObject(),
+          clientTempId: clientTempId || null,
+        };
 
-      // Emit to the conversation room for real-time delivery but exclude the sender
+        // DEBUG: log important identifiers to trace duplicate message flow
+        console.log("sendMessage DEBUG:", {
+          clientTempId,
+          senderId,
+          receiverId,
+          conversationId: conversation?._id?.toString(),
+          socketUserMapKeys: Array.from(req.socketUserMap?.keys ? req.socketUserMap.keys() : []).slice(0,10),
+        });
       // The sender already receives the persisted message via the HTTP response
       try {
         if (senderSocketId) {
@@ -93,17 +102,21 @@ export const sendMessage = async (req, res) => {
         }
       } catch (e) {
         // Fallback: emit to room (older socket.io versions may not support except)
+              console.log("sendMessage DEBUG: emitted to room with except (excluded senderSocketId)", { senderSocketId });
         req.io
           .to(conversation._id.toString())
+              console.log("sendMessage DEBUG: emitted to room (no senderSocketId)");
           .emit("new_message", populatedMessage);
       }
 
       // If receiver is directly connected (and not part of the room), ensure they get notified
+            console.log("sendMessage DEBUG: fallback emitted to room (except not supported)", { error: e && e.message });
       if (receiverSocketId) {
         req.io.to(receiverSocketId).emit("new_message", populatedMessage);
         message.messageStatus = "delivered";
         await message.save();
       }
+            console.log("sendMessage DEBUG: emitted directly to receiverSocketId", { receiverSocketId });
     }
 
     return response(res, 201, "Message sent successfully", populatedMessage);

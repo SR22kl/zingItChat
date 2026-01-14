@@ -269,6 +269,28 @@ export const useChatStore = create((set, get) => ({
       messages: [...state.messages, optimisticMessage],
     }));
 
+    // DEBUG: log optimistic message added
+    try {
+      console.debug("recieveMessage DEBUG: optimistic added", {
+        tempId,
+        optimisticMessage,
+      });
+    } catch (e) {
+      /* noop */
+    }
+
+    // Ensure server knows the client's temp id so it can include it in emitted payloads
+    try {
+      if (formData && typeof formData.append === "function") {
+        formData.append("clientTempId", tempId);
+        console.debug("sendMessage DEBUG: appended clientTempId to formData", {
+          tempId,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to append clientTempId to formData", e);
+    }
+
     try {
       const { data } = await axiosInstance.post(
         "/chat/send-message",
