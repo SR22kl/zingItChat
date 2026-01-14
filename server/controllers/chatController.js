@@ -70,17 +70,32 @@ export const sendMessage = async (req, res) => {
     // Emit socket event for real-time message delivery
     if (req.io && req.socketUserMap) {
       const receiverSocketId = req.socketUserMap.get(receiverId);
-      // Emit to both the receiver individually AND the conversation room
-      // so both sender and receiver see the message in real-time
+      const senderSocketId = req.socketUserMap.get(senderId);
+
+      // Emit to the conversation room for real-time delivery but exclude the sender
+      // The sender already receives the persisted message via the HTTP response
+      try {
+        if (senderSocketId) {
+          // Use `in(...).except(...)` to avoid sending the room event back to sender
+          req.io
+            .in(conversation._id.toString())
+            .except(senderSocketId)
+            .emit("new_message", populatedMessage);
+        } else {
+          req.io
+            .in(conversation._id.toString())
+            .emit("new_message", populatedMessage);
+        }
+      } catch (e) {
+        // Fallback: emit to room (older socket.io versions may not support except)
+        req.io
+          .to(conversation._id.toString())
+          .emit("new_message", populatedMessage);
+      }
+
+      // If receiver is directly connected (and not part of the room), ensure they get notified
       if (receiverSocketId) {
         req.io.to(receiverSocketId).emit("new_message", populatedMessage);
-      }
-      // Also emit to the conversation room so all participants see it
-      req.io
-        .to(conversation._id.toString())
-        .emit("new_message", populatedMessage);
-
-      if (receiverSocketId) {
         message.messageStatus = "delivered";
         await message.save();
       }
