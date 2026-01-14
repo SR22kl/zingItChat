@@ -7,48 +7,76 @@ export const useChatStore = create((set, get) => ({
   currentConversation: null,
   messages: [],
   loading: false,
-  error: null,
-  onlineUsers: new Map(),
-  typingUsers: new Map(),
+    if (!message) return;
 
-  //socked event listners setup
-  initsoketListeners: () => {
-    const socket = getSocket();
-    if (!socket) return;
+    const { currentConversation, currentUser } = get();
+    const stateMessages = get().messages || [];
 
-    //remove existing listeners to prevent duplicate handlers
-    socket.off("send_message");
-    socket.off("receive_message");
-    socket.off("user_typing");
-    socket.off("user_status");
-    socket.off("message_error");
-    socket.off("message_deleted");
-    socket.off("refetch_messages"); // <-- Cleaned up listeners
+    // DEBUG: incoming message
+    try {
+      console.debug("recieveMessage DEBUG: incoming", { messageId: message._id, clientTempId: message.clientTempId });
+    } catch (e) {}
 
-    //listen for incoming messages (server may emit different event names)
-    socket.on("receive_message", (message) => {
-      try {
-        console.debug("socket: receive_message", message);
-        get().recieveMessage(message);
-      } catch (e) {
-        console.error("Error handling receive_message", e);
+    // If server message has clientTempId and a matching optimistic message exists, replace it
+    let replacedOptimistic = false;
+    if (message.clientTempId) {
+      const tempIndex = stateMessages.findIndex((m) => m._id === message.clientTempId);
+      if (tempIndex > -1) {
+        set((state) => {
+          const newMessages = [...state.messages];
+          newMessages[tempIndex] = message;
+          return { messages: newMessages };
+        });
+
+        replacedOptimistic = true;
+
+        //automatically mark as read
+        if (message?.receiver?._id === currentUser?._id) {
+          get().markMessagesAsRead();
+        }
       }
-    });
+    }
 
-    // server sometimes emits 'new_message' when a message is stored
-    socket.on("new_message", (message) => {
-      try {
-        console.debug("socket: new_message", message);
-        get().recieveMessage(message);
-      } catch (e) {
-        console.error("Error handling new_message", e);
-      }
-    });
+    // If message already exists by server _id, ignore duplicate
+    if (stateMessages.some((m) => m._id === message._id)) {
+      return;
+    }
 
-    //confirm message dilivery
-    socket.on("send_message", (message) => {
+    // If not replaced optimistic and conversation matches, append message
+    if (!replacedOptimistic && message.conversation === currentConversation) {
       set((state) => ({
-        messages: state.messages.map((msg) =>
+        messages: [...state.messages, message],
+      }));
+
+      //automatically mark as read
+      if (message?.receiver?._id === currentUser?._id) {
+        get().markMessagesAsRead();
+      }
+    }
+
+    //update conversation preview & unread count
+    set((state) => {
+      const updateConversations = state.conversations.data.map((conv) => {
+        if (conv._id === message.conversation) {
+          return {
+            ...conv,
+            latestMessage: message,
+            unreadCount:
+              message?.receiver?._id === currentUser?._id
+                ? (conv.unreadCount || 0) + 1
+                : conv.unreadCount || 0,
+          };
+        }
+        return conv;
+      });
+
+      return {
+        conversations: {
+          ...state.conversations,
+          data: updateConversations,
+        },
+      };
+    });
           msg._id === message._id ? message : msg
         ),
       }));

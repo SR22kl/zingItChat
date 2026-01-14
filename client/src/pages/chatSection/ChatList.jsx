@@ -110,9 +110,7 @@ const ChatList = ({ contacts }) => {
                     {contact?.conversation?.lastMessage?.content}
                   </p>
                   {contact?.conversation &&
-                    contact?.conversation?.unreadCount > 0 &&
-                    contact?.conversation?.lastMessage?.reciever ===
-                      user?._id && (
+                    contact?.conversation?.unreadCount > 0 && (
                       <p
                         className={`text-sm font-semibold w-6 h-6 flex items-center justify-center bg-yellow-500 ${
                           theme === "dark" ? "text-gray-800" : "text-gray-500"
