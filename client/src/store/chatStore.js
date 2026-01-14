@@ -278,11 +278,18 @@ export const useChatStore = create((set, get) => ({
       );
       const messageData = data.data || data;
 
-      set((state) => ({
-        messages: state.messages.map((msg) =>
+      set((state) => {
+        // Replace optimistic temp message with server message and dedupe duplicates
+        const replaced = state.messages.map((msg) =>
           msg._id === tempId ? messageData : msg
-        ),
-      }));
+        );
+        const deduped = [];
+        for (const m of replaced) {
+          if (!m || !m._id) continue;
+          if (!deduped.find((x) => x._id === m._id)) deduped.push(m);
+        }
+        return { messages: deduped };
+      });
       return messageData;
     } catch (error) {
       console.error("failed to send message", error);
@@ -316,17 +323,27 @@ export const useChatStore = create((set, get) => ({
         set((state) => {
           const newMessages = [...state.messages];
           newMessages[tempIndex] = message;
-          return { messages: newMessages };
+          // dedupe after replacement
+          const deduped = [];
+          for (const m of newMessages) {
+            if (!m || !m._id) continue;
+            if (!deduped.find((x) => x._id === m._id)) deduped.push(m);
+          }
+          return { messages: deduped };
         });
-
         replacedOptimistic = true;
-
+        // refresh local snapshot
+        stateMessages = get().messages || [];
         if (message?.receiver?._id === currentUser?._id) {
           get().markMessagesAsRead();
         }
       }
     }
 
+    // Re-read current messages from state to avoid stale checks
+    stateMessages = get().messages || [];
+
+    // If server id already exists, ignore duplicate
     if (stateMessages.some((m) => m._id === message._id)) return;
 
     if (

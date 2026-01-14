@@ -95,9 +95,11 @@ const ChatList = ({ contacts }) => {
                         theme === "dark" ? "text-gray-300" : "text-gray-500"
                       }`}
                     >
-                      {formatTimestamp(
-                        contact?.conversation?.lastMessage?.createdAt
-                      )}
+                      {contact?.conversation?.lastMessage?.createdAt
+                        ? formatTimestamp(
+                            contact.conversation.lastMessage.createdAt
+                          )
+                        : ""}
                     </span>
                   )}
                 </div>
@@ -110,13 +112,13 @@ const ChatList = ({ contacts }) => {
                     {contact?.conversation?.lastMessage?.content}
                   </p>
                   {contact?.conversation &&
-                    contact?.conversation?.unreadCount > 0 && (
+                    Number(contact.conversation.unreadCount || 0) > 0 && (
                       <p
                         className={`text-sm font-semibold w-6 h-6 flex items-center justify-center bg-yellow-500 ${
                           theme === "dark" ? "text-gray-800" : "text-gray-500"
                         } rounded-full`}
                       >
-                        {contact?.conversation?.unreadCount}
+                        {Number(contact.conversation.unreadCount || 0)}
                       </p>
                     )}
                 </div>
