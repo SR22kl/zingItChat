@@ -16,9 +16,28 @@ const ChatList = ({ contacts }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const { user } = useUserStore();
   const fetchCoversations = useChatStore((s) => s.fetchCoversations);
-  const fiterContacts = contacts.filter((contact) =>
-    contact?.userName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const conversations = useChatStore((s) => s.conversations);
+
+  // Build filtered contacts from store's conversations for real-time updates
+  const fiterContacts = (conversations?.data || [])
+    .map((conv) => {
+      const otherParticipant = conv.participants?.find(
+        (p) => p._id !== user?._id
+      );
+      if (!otherParticipant) return null;
+      return {
+        ...otherParticipant,
+        conversation: {
+          ...conv,
+          lastMessage: conv.latestMessage,
+          unreadCount: conv.unreadCount,
+        },
+      };
+    })
+    .filter(Boolean)
+    .filter((contact) =>
+      contact?.userName?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   const backUserPic =
     "https://img.freepik.com/free-vector/user-blue-gradient_78370-4692.jpg?semt=ais_hybrid&w=740&q=80";
@@ -73,17 +92,6 @@ const ChatList = ({ contacts }) => {
           </div>
         </div>
         <div className="overflow-y-auto h-[cal(120vh-120px)]">
-          {/* Ensure conversations and socket listeners are initialized so real-time updates work */}
-          {/* fetchCoversations is idempotent and also initializes socket listeners in the store */}
-          {useEffect(() => {
-            try {
-              fetchCoversations();
-            } catch (e) {
-              console.error("ChatList: failed to fetch conversations", e);
-            }
-            // run once on mount
-            // eslint-disable-next-line react-hooks/exhaustive-deps
-          }, [])}
           {fiterContacts.map((contact) => (
             <motion.div
               key={contact?._id}
