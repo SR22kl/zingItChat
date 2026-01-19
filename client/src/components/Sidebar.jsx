@@ -44,107 +44,120 @@ const Sidebar = () => {
 
   const SidebarContent = (
     <>
-      <Link
-        to="/"
-        className={`${isMobile ? "" : "mb-8"} ${
-          activeTab === "chats" && "bg-purple-500 shadow-md rounded-full"
-        } p-2 hover:bg-purple-600 rounded-full transition duration-300 ease-in-out focus:outline-none`}
-      >
-        <RiChatSmileAiLine
-          className={`w-6 h-6 ${
-            activeTab === "chats"
-              ? theme === "dark"
-                ? "text-gray-800"
-                : ""
-              : theme === "dark"
-              ? "text-gray-400"
-              : "text-gray-800"
-          }`}
-        />
+      <Link to="/">
+        <motion.div
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className={`${isMobile ? "" : "mb-8"} ${
+            activeTab === "chats" &&
+            "bg-linear-to-br from-purple-500 to-pink-500 shadow-lg"
+          } p-3 hover:bg-linear-to-br hover:from-purple-400 hover:to-pink-400 rounded-2xl transition-all duration-300 ease-in-out focus:outline-none hover:shadow-xl`}
+        >
+          <RiChatSmileAiLine
+            className={`w-6 h-6 ${
+              activeTab === "chats"
+                ? "text-white"
+                : theme === "dark"
+                  ? "text-gray-300"
+                  : "text-gray-700"
+            } transition-colors duration-200`}
+          />
+        </motion.div>
       </Link>
-      <Link
-        to="/status"
-        className={`${isMobile ? "" : "mb-8"} ${
-          activeTab === "status" && "bg-purple-400 shadow-md rounded-full"
-        } p-2 hover:bg-purple-600 transition duration-300 ease-in-out rounded-full focus:outline-none `}
-      >
-        <HiOutlineStatusOnline
-          className={`w-6 h-6 ${
-            activeTab === "status"
-              ? theme === "dark"
-                ? "text-gray-800"
-                : ""
-              : theme === "dark"
-              ? "text-gray-400"
-              : "text-gray-800"
-          }`}
-        />
+      <Link to="/status">
+        <motion.div
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className={`${isMobile ? "" : "mb-8"} ${
+            activeTab === "status" &&
+            "bg-linear-to-br from-green-500 to-teal-500 shadow-lg"
+          } p-3 hover:bg-linear-to-br hover:from-green-400 hover:to-teal-400 rounded-2xl transition-all duration-300 ease-in-out focus:outline-none hover:shadow-xl`}
+        >
+          <HiOutlineStatusOnline
+            className={`w-6 h-6 ${
+              activeTab === "status"
+                ? "text-white"
+                : theme === "dark"
+                  ? "text-gray-300"
+                  : "text-gray-700"
+            } transition-colors duration-200`}
+          />
+        </motion.div>
       </Link>
       {!isMobile && <div className=" grow" />}
 
-      <Link
-        to="/user-profile"
-        className={`${isMobile ? "" : "mb-8"} ${
-          activeTab === "user-profile" && "bg-purple-400 shadow-md rounded-full"
-        } p-2 hover:bg-purple-600 transition duration-300 ease-in-out rounded-full focus:outline-none `}
-      >
-        {user?.profilePicture ? (
-          <img
-            src={user?.profilePicture}
-            alt="user"
-            className="w-6 h-6 rounded-full"
-          />
-        ) : (
-          <FaUserNinja
-            className={`w-6 h-6 ${
-              activeTab === "profile"
-                ? theme === "dark"
-                  ? "text-gray-800"
-                  : ""
-                : theme === "dark"
-                ? "text-gray-400"
-                : "text-gray-800"
-            }`}
-          />
-        )}
+      <Link to="/user-profile">
+        <motion.div
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className={`${isMobile ? "" : "mb-8"} ${
+            activeTab === "user-profile" &&
+            "bg-linear-to-br from-blue-500 to-cyan-500 shadow-lg"
+          } p-3 hover:bg-linear-to-br hover:from-blue-400 hover:to-cyan-400 rounded-2xl transition-all duration-300 ease-in-out focus:outline-none hover:shadow-xl`}
+        >
+          {user?.profilePicture ? (
+            <img
+              src={user?.profilePicture}
+              alt="user"
+              className="w-6 h-6 rounded-full border-2 border-white/50"
+            />
+          ) : (
+            <FaUserNinja
+              className={`w-6 h-6 ${
+                activeTab === "user-profile"
+                  ? "text-white"
+                  : theme === "dark"
+                    ? "text-gray-300"
+                    : "text-gray-700"
+              } transition-colors duration-200`}
+            />
+          )}
+        </motion.div>
       </Link>
-     <Link
-        to="/settings"
-        className={`${isMobile ? "" : "mb-8"} ${
-          activeTab === "settings" && "bg-purple-500 shadow-md rounded-full"
-        } p-2 hover:bg-purple-600 rounded-full transition duration-300 ease-in-out focus:outline-none`}
-      >
-        <IoSettingsOutline
-          className={`w-6 h-6 ${
-            activeTab === "settings"
-              ? theme === "dark"
-                ? "text-gray-800"
-                : ""
-              : theme === "dark"
-              ? "text-gray-400"
-              : "text-gray-800"
-          }`}
-        />
+      <Link to="/settings">
+        <motion.div
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className={`${isMobile ? "" : "mb-8"} ${
+            activeTab === "settings" &&
+            "bg-linear-to-br from-purple-500 to-pink-500 shadow-lg"
+          } p-3 hover:bg-linear-to-br hover:from-purple-400 hover:to-pink-400 rounded-2xl transition-all duration-300 ease-in-out focus:outline-none hover:shadow-xl`}
+        >
+          <IoSettingsOutline
+            className={`w-6 h-6 ${
+              activeTab === "settings"
+                ? "text-white"
+                : theme === "dark"
+                  ? "text-gray-300"
+                  : "text-gray-700"
+            } transition-colors duration-200`}
+          />
+        </motion.div>
       </Link>
     </>
   );
   return (
     <>
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
+        initial={{ opacity: 0, x: isMobile ? 0 : -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className={`${
           isMobile
             ? "fixed bottom-0 left-0 right-0 h-16"
             : "w-16 h-screen border-r-2 shadow-lg"
         } ${
           theme === "dark"
-            ? "bg-gray-900 border-gray-600"
-            : "bg-[rgb(239,242,254)] border-gray-300"
-        } opacity-50 flex items-center py-4 shadow-lg ${
+            ? "bg-slate-900/80 border-gray-700/50"
+            : "bg-white/80 border-gray-200/50"
+        } backdrop-blur-xl flex items-center py-4 shadow-2xl ${
           isMobile ? "flex-row justify-around" : "flex-col justify-between"
         }`}
+        style={{
+          boxShadow: isMobile
+            ? "0 -4px 20px rgba(0, 0, 0, 0.1)"
+            : "4px 0 20px rgba(0, 0, 0, 0.1)",
+        }}
       >
         {SidebarContent}
       </motion.div>

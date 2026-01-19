@@ -253,49 +253,85 @@ const Login = () => {
 
   const ProgressBar = ({ theme, step }) => {
     return (
-      <div
+      <motion.div
+        initial={{ opacity: 0, scaleX: 0 }}
+        animate={{ opacity: 1, scaleX: 1 }}
+        transition={{ duration: 0.5 }}
         className={`w-full ${
-          theme === "dark" ? "bg-gray-700" : "bg-gray-200"
-        } rounded-full h-2.5 mb-4 `}
+          theme === "dark" ? "bg-gray-700/50" : "bg-gray-200/50"
+        } rounded-full h-3 mb-6 backdrop-blur-sm border border-white/10 overflow-hidden`}
       >
-        <div
-          className="bg-purple-500 h-2.5 rounded-full transition-all duration-500 ease-in-out"
-          style={{ width: `${(step / 3) * 100}%` }}
-        ></div>
-      </div>
+        <motion.div
+          className="bg-linear-to-r from-purple-500 to-pink-500 h-full rounded-full shadow-lg"
+          initial={{ width: 0 }}
+          animate={{ width: `${(step / 3) * 100}%` }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          style={{
+            boxShadow: "0 0 10px rgba(147, 51, 234, 0.5)",
+          }}
+        >
+          <motion.div
+            className="w-full h-full bg-white/30 rounded-full"
+            animate={{ x: ["-100%", "100%"] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          />
+        </motion.div>
+      </motion.div>
     );
   };
 
   return (
     <>
-      <div
-        className={`${
-          theme === "dark"
-            ? "bg-linear-to-br from-indigo-950 to-purple-900"
-            : "bg-linear-to-br from-gray-200 to-gray-300"
-        } relative flex items-center justify-center min-h-screen font-sans overflow-hidden`}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8 }}
+        className="min-h-screen bg-linear-to-br from-purple-400 via-pink-500 to-red-500 flex items-center justify-center font-sans overflow-hidden relative"
       >
+        {/* Animated background elements */}
+        <div className="absolute inset-0 overflow-hidden">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute -top-40 -right-40 w-80 h-80 bg-white/10 rounded-full blur-3xl"
+          />
+          <motion.div
+            animate={{ rotate: -360 }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-300/20 rounded-full blur-3xl"
+          />
+        </div>
+
         <motion.div
-          initial={{ opacity: 0, y: -50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
+          initial={{ opacity: 0, y: 50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
           className={`${
-            theme === "dark" ? "bg-indigo-950" : "bg-white"
-          } w-full max-w-md rounded-lg shadow-2xl p-6 md:p-8 relative z-10`}
+            theme === "dark" ? "bg-slate-900/90" : "bg-white/90"
+          } w-full max-w-md rounded-3xl shadow-2xl p-8 md:p-10 relative z-10 backdrop-blur-xl border border-white/20`}
+          style={{
+            boxShadow:
+              "0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)",
+          }}
         >
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
+            initial={{ scale: 0, rotate: -180 }}
+            animate={{ scale: 1, rotate: 0 }}
             transition={{
-              duration: 0.2,
+              duration: 0.8,
               type: "spring",
-              stiffness: 260,
-              damping: 20,
+              stiffness: 200,
+              damping: 15,
               delay: 0.5,
             }}
-            className="w-24 h-24 bg-purple-700 rounded-full mx-auto mb-5 flex items-center justify-center"
+            className="w-28 h-28 bg-linear-to-br from-purple-500 to-pink-500 rounded-3xl mx-auto mb-6 flex items-center justify-center shadow-2xl"
           >
-            <RiChatSmileAiLine className="w-16 h-16 text-white" />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+            >
+              <RiChatSmileAiLine className="w-16 h-16 text-white drop-shadow-lg" />
+            </motion.div>
           </motion.div>
 
           <h1
@@ -615,7 +651,6 @@ const Login = () => {
                       : "bg-white border-gray-300"
                   } rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                     profileErrors.userName ? "border-red-500" : ""
-                  }
                   }`}
                 />
                 {profileErrors.userName && (
@@ -686,7 +721,7 @@ const Login = () => {
             </form>
           )}
         </motion.div>
-      </div>
+      </motion.div>
     </>
   );
 };
