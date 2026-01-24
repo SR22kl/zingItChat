@@ -194,5 +194,5 @@ zingitchat/
 
 ---
 
-Made with ❤️ using React, Node.js, and Socket.IO</content>
+Made with using React, Node.js, and Socket.IO</content>
 <parameter name="filePath">d:\W-FSD\zingItChat\README.md
